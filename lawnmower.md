@@ -36,3 +36,9 @@ _A lawn mower with a brain_
     - RTK
     - IMU
 - Bump Count
+
+### Hardware
+
+Nvidia Jetson Nano
+RTK - Ardusimple LR kit
+IMU - BMI160
