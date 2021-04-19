@@ -11,10 +11,11 @@ SAFE_SPOT = {
     "long": ""
 }
 
+REQUIRED_DISTANCE_TO_GPS_POINT = 1 # metres
+
 bladesOn = False
-atFirstPoint = False
+reachedStartingPoint = False
 driving = False
-readyToNavigatePath = False
 endLoop = False
 px = []
 py = []
@@ -36,9 +37,16 @@ def getGPSLocation():
     return geopy.Point(px[locationIndex], py[locationIndex])
 
 def goTo(point):
-    global driving
+
+    # Turn the machine to face the direction of the next GPS point
+        # We can use the GPS heading measurement
+    # Move forward until reached the desired point
+
+    # I guess if it moves off track of the point we will have to re-adjust and make it face the point again
+        # Can look at and see if the current heading matches or is close to an ideal heading
+            # Once the heading angle is too far off we can turn again to focus on the correct heading
+
     print(f'Going to {point}')
-    driving = True
 
 def getPath(pointToReturn):
     global px, py
@@ -49,13 +57,13 @@ def measure_gps_distance(start, end):
 
 def getDistanceToPoint(point):
     distance = measure_gps_distance(getGPSLocation(), point)
-    print(f'Distance to point {point} is {distance} metres')
+    # print(f'Distance to point {point} is {distance} metres')
     return distance
 
-def blades(on):
+def blades(turnOn):
     global bladesOn
-    print(f'Turning blades {on}')
-    if on:
+    print(f'Turning blades {"on" if turnOn else "off"}')
+    if turnOn:
         bladesOn = True
     else:
         bladesOn = False
@@ -63,7 +71,10 @@ def blades(on):
 def navigatePath():
     global endLoop, pathIndex
 
-    if getDistanceToPoint(getPath(pathIndex)) <= 1:
+    nextGPSPoint = getPath(pathIndex)
+    goTo(nextGPSPoint)
+
+    if getDistanceToPoint(nextGPSPoint) <= REQUIRED_DISTANCE_TO_GPS_POINT:
         pathIndex = pathIndex + 1
         print(f'Navigating to next point {getPath(pathIndex)}')
 
@@ -84,27 +95,23 @@ def detectIssues():
     # print('Checking for any problems.')
     return False
 
-def loop():
-    threading.Timer(0.5, loop).start()
+def handleMowing():
+    global pathIndex
 
-    global atFirstPoint, pathIndex, readyToNavigatePath
+    if pathIndex > 0 and pathIndex < len(px) and not(bladesOn):
+        blades(True)
+    
+    if pathIndex == 0 or pathIndex == len(px):
+        blades(False)
+
+def loop():
+    global reachedStartingPoint, pathIndex
 
     detectIssues()
-        
-    # begin navigating the path with blades on
-    if readyToNavigatePath:
-        navigatePath()
-    else:
-        if not(atFirstPoint):
-            if getDistanceToPoint(firstPoint) <= 1:
-                atFirstPoint = True
-            if not(driving):
-                goTo(firstPoint)
-        else:
-            if not(bladesOn):
-                blades(True)
-                pathIndex = pathIndex + 1
-                readyToNavigatePath = True
+    navigatePath()
+    handleMowing()
+    
+    threading.Timer(0.5, loop).start()
 
 if __name__ == "__main__":
     start()
