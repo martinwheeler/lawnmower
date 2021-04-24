@@ -5,6 +5,11 @@ import pathPlanning
 from pathPlanning import planning
 import threading
 import random
+from gps import GPS
+from inside_polygon import Geospacial
+from location import LocationObject
+import time
+from datetime import datetime
 
 SAFE_SPOT = {
     "lat": "",
@@ -13,6 +18,10 @@ SAFE_SPOT = {
 
 REQUIRED_DISTANCE_TO_GPS_POINT = 1 # metres
 
+previousLocation = 0
+recording = False
+recordTimestamp = 0
+recordFile = 0
 bladesOn = False
 reachedStartingPoint = False
 driving = False
@@ -26,6 +35,9 @@ pathResolution = 0.00001
 locationIndex = 0
 pathIndex = 0
 
+gps = GPS()
+geospace = Geospacial()
+
 def changeLocationIndex():
     threading.Timer(1.0, changeLocationIndex).start()
     global locationIndex
@@ -34,10 +46,12 @@ def changeLocationIndex():
 # TODO: Pull from GPS module
 def getGPSLocation():
     global locationIndex
-    return geopy.Point(px[locationIndex], py[locationIndex])
+    currenctLocation = gps.getPositionData()
+    return geopy.Point(currenctLocation.fLatitude, currenctLocation.fLongitude)
+    #return geopy.Point(px[locationIndex], py[locationIndex])
 
 def goTo(point):
-
+    return
     # Turn the machine to face the direction of the next GPS point
         # We can use the GPS heading measurement
     # Move forward until reached the desired point
@@ -46,23 +60,25 @@ def goTo(point):
         # Can look at and see if the current heading matches or is close to an ideal heading
             # Once the heading angle is too far off we can turn again to focus on the correct heading
 
-    print(f'Going to {point}')
+    #print(f'Going to {point}')
 
 def getPath(pointToReturn):
     global px, py
     return geopy.Point(px[pointToReturn], py[pointToReturn])
 
 def measure_gps_distance(start, end):
-    return numpy.rint(geopy.distance.geodesic(start, end).km * 1000)
+    return numpy.rint(geopy.distance.geodesic(start, end).km / 1000)
 
 def getDistanceToPoint(point):
     distance = measure_gps_distance(getGPSLocation(), point)
-    # print(f'Distance to point {point} is {distance} metres')
+    print(f'Distance to point {point} is {distance} metres')
     return distance
 
 def blades(turnOn):
     global bladesOn
-    print(f'Turning blades {"on" if turnOn else "off"}')
+    if turnOn != bladesOn:
+        print(f'Turning blades {"on" if turnOn else "off"}')
+
     if turnOn:
         bladesOn = True
     else:
@@ -77,14 +93,6 @@ def navigatePath():
     if getDistanceToPoint(nextGPSPoint) <= REQUIRED_DISTANCE_TO_GPS_POINT:
         pathIndex = pathIndex + 1
         print(f'Navigating to next point {getPath(pathIndex)}')
-
-def start():
-    global firstPoint, px, py
-    px, py = planning(boundaryX, boundaryY, pathResolution)
-    firstPoint = getPath(pathIndex)
-
-    changeLocationIndex()
-    loop()
 
 def detectIssues():
 
@@ -104,14 +112,54 @@ def handleMowing():
     if pathIndex == 0 or pathIndex == len(px):
         blades(False)
 
-def loop():
-    global reachedStartingPoint, pathIndex
+def startRecording():
+    global recordTimestamp, recordFile, recording
+    recordTimestamp = datetime.now()
+    recordFile = open(f'/home/lawn/code/lawnmower/logs/gps_log_{recordTimestamp}.txt', 'w')
+    recording = True    
 
-    detectIssues()
-    navigatePath()
-    handleMowing()
+def stopRecording():
+    global recording, recordFile
+    print('Stopping recording')
+    recordFile = 0
+    recording = False
+
+def saveToFile(message, filePath):
+    print(message, file=filePath, flush=True)
+
+def recordFence():
+    global recordFile, previousLocation
+    try:
+        currentLocation = getGPSLocation()
+
+        if currentLocation != previousLocation:
+            saveToFile(f'{datetime.now()} {currentLocation}', recordFile)
+            previousLocation = currentLocation
+    except:
+        print('No file ready')
+
+def start():
+    global firstPoint, px, py
+    px, py = planning(boundaryX, boundaryY, pathResolution)
+    firstPoint = getPath(pathIndex)
+
+    # if not(recording):
+    #     startRecording()
+
+    changeLocationIndex()
+    loop()
+
+def loop():
+    global reachedStartingPoint, pathIndex, recording
+
+    if recording:
+        recordFence()
+    else:
+        detectIssues()
+        navigatePath()
+        handleMowing()
     
-    threading.Timer(0.5, loop).start()
+    threading.Timer(0.01, loop).start()
 
 if __name__ == "__main__":
     start()

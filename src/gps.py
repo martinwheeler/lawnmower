@@ -11,7 +11,7 @@ gps = serial.Serial(
     stopbits=serial.STOPBITS_ONE,
     timeout=1
 )
-defaultLocation = LocationObject(0.0, 0.0)
+currentLocation = LocationObject(0.0, 0.0)
 
 class GPS:
     # In the NMEA message, the position gets transmitted as:
@@ -39,8 +39,15 @@ class GPS:
     # and then parses the NMEA messages it transmits.
     # gps is the serial port, that's used to communicate with the GPS adapter
     def getPositionData(self):
-        data = gps.readline().decode('utf-8')
+        global currentLocation
+
+        try:
+            data = gps.readline().decode('utf-8')
+        except:
+            return currentLocation
+            
         message = data[0:6]
+
         if (message == "$GNRMC"):
             # GPRMC = Recommended minimum specific GPS/Transit data
             # Reading the GPS fix data is an alternative approach that also works
@@ -48,14 +55,15 @@ class GPS:
             if parts[2] == 'V':
                 # V = Warning, most likely, there are no satellites in view...
                 print("GPS receiver warning")
-                return defaultLocation
+                return currentLocation
             else:
                 # Get the position data that was transmitted with the GPRMC message
                 # In this example, I'm only interested in the longitude and latitude
                 # for other values, that can be read, refer to: http://aprs.gids.nl/nmea/#rmc
                 latitude = self.formatDegreesMinutes(parts[3], 2)
-                longitude = self.formatDegreesMinutes(parts[5], 3)            
-                return LocationObject(float(latitude), float(longitude))
+                longitude = self.formatDegreesMinutes(parts[5], 3)
+                currentLocation = LocationObject(float(latitude), float(longitude))
+                return currentLocation
         else:
             # Handle other NMEA messages and unsupported strings
-            return defaultLocation
+            return currentLocation

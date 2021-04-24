@@ -10,7 +10,7 @@ ser = serial.Serial(
     timeout=1
 )
 counter=0
-text_file = open('/home/lawn/code/lawnmower/gps_log.txt', 'w')
+text_file = open('/home/lawn/code/lawnmower/logs/gps_log.txt', 'w')
 
 
 while 1:

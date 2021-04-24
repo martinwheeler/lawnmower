@@ -9,6 +9,8 @@ import os
 import sys
 from enum import IntEnum
 
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial.transform import Rotation as Rot
