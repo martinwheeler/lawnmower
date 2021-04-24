@@ -10,11 +10,15 @@ from inside_polygon import Geospacial
 from location import LocationObject
 import time
 from datetime import datetime
+import struct
+import serial
 
 SAFE_SPOT = {
     "lat": "",
     "long": ""
 }
+
+# https://www.jetsonhacks.com/nvidia-jetson-nano-j41-header-pinout/
 
 REQUIRED_DISTANCE_TO_GPS_POINT = 1 # metres
 
@@ -38,6 +42,23 @@ pathIndex = 0
 gps = GPS()
 geospace = Geospacial()
 
+motor1 = serial.Serial(
+    port="/dev/ttyTHS2",
+    baudrate=115200,
+    bytesize=serial.EIGHTBITS,
+    parity=serial.PARITY_NONE,
+    stopbits=serial.STOPBITS_ONE,
+    timeout=1
+)
+motor2 = serial.Serial(
+    port="/dev/ttyTHS3",
+    baudrate=115200,
+    bytesize=serial.EIGHTBITS,
+    parity=serial.PARITY_NONE,
+    stopbits=serial.STOPBITS_ONE,
+    timeout=1
+)
+
 def changeLocationIndex():
     threading.Timer(1.0, changeLocationIndex).start()
     global locationIndex
@@ -49,6 +70,31 @@ def getGPSLocation():
     currenctLocation = gps.getPositionData()
     return geopy.Point(currenctLocation.fLatitude, currenctLocation.fLongitude)
     #return geopy.Point(px[locationIndex], py[locationIndex])
+
+def sendMotorSignal(steer = 0, speed = 20, motor):
+    start=0xABCD
+    checksum = start ^ steer ^ speed
+    
+    # https://www.journaldev.com/17401/python-struct-pack-unpack
+    dataToSend = struct.pack('HhhH', start, steer, speed, checksum)
+
+    motor.write(dataToSend)
+
+def turnLeft():
+    sendMotorSignal(0, -20, motor1)
+    sendMotorSignal(0, 20, motor2)
+
+def turnRight():
+    sendMotorSignal(0, 20, motor1)
+    sendMotorSignal(0, -20, motor2)
+
+def forward():
+    sendMotorSignal(0, 20, motor1)
+    sendMotorSignal(0, 20, motor2)
+
+def backward():
+    sendMotorSignal(0, -20, motor1)
+    sendMotorSignal(0, -20, motor2)
 
 def goTo(point):
     return
@@ -142,6 +188,11 @@ def start():
     global firstPoint, px, py
     px, py = planning(boundaryX, boundaryY, pathResolution)
     firstPoint = getPath(pathIndex)
+
+    firstValue = 12
+    secondValue = 10
+
+    print(firstValue^secondValue)
 
     # if not(recording):
     #     startRecording()
