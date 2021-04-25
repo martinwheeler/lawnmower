@@ -43,7 +43,7 @@ gps = GPS()
 geospace = Geospacial()
 
 motor1 = serial.Serial(
-    port="/dev/ttyTHS2",
+    port="/dev/ttyTHS1",
     baudrate=115200,
     bytesize=serial.EIGHTBITS,
     parity=serial.PARITY_NONE,
@@ -51,7 +51,7 @@ motor1 = serial.Serial(
     timeout=1
 )
 motor2 = serial.Serial(
-    port="/dev/ttyTHS3",
+    port="/dev/ttyTHS1",
     baudrate=115200,
     bytesize=serial.EIGHTBITS,
     parity=serial.PARITY_NONE,
@@ -64,6 +64,9 @@ def changeLocationIndex():
     global locationIndex
     locationIndex = random.randint(0, 20)
 
+def getGPSData():
+    return gps.getPositionData()
+
 # TODO: Pull from GPS module
 def getGPSLocation():
     global locationIndex
@@ -71,7 +74,7 @@ def getGPSLocation():
     return geopy.Point(currenctLocation.fLatitude, currenctLocation.fLongitude)
     #return geopy.Point(px[locationIndex], py[locationIndex])
 
-def sendMotorSignal(steer = 0, speed = 20, motor):
+def sendMotorSignal(motor, steer = 0, speed = 20):
     start=0xABCD
     checksum = start ^ steer ^ speed
     
@@ -81,22 +84,26 @@ def sendMotorSignal(steer = 0, speed = 20, motor):
     motor.write(dataToSend)
 
 def turnLeft():
-    sendMotorSignal(0, -20, motor1)
-    sendMotorSignal(0, 20, motor2)
+    sendMotorSignal(motor1, 0, -20)
+    sendMotorSignal(motor2, 0, 20)
 
 def turnRight():
-    sendMotorSignal(0, 20, motor1)
-    sendMotorSignal(0, -20, motor2)
+    sendMotorSignal(motor1, 0, 20)
+    sendMotorSignal(motor2, 0, -20)
 
 def forward():
-    sendMotorSignal(0, 20, motor1)
-    sendMotorSignal(0, 20, motor2)
+    sendMotorSignal(motor1, 0, 20)
+    sendMotorSignal(motor2, 0, 20)
 
 def backward():
-    sendMotorSignal(0, -20, motor1)
-    sendMotorSignal(0, -20, motor2)
+    sendMotorSignal(motor1, 0, -20)
+    sendMotorSignal(motor2, 0, -20)
 
 def goTo(point):
+    currentData = getGPSData()
+
+    print(f'Speed: {currentData.speed}, Heading: {currentData.heading}')
+
     return
     # Turn the machine to face the direction of the next GPS point
         # We can use the GPS heading measurement
@@ -117,7 +124,7 @@ def measure_gps_distance(start, end):
 
 def getDistanceToPoint(point):
     distance = measure_gps_distance(getGPSLocation(), point)
-    print(f'Distance to point {point} is {distance} metres')
+    # print(f'Distance to point {point} is {distance} metres')
     return distance
 
 def blades(turnOn):
@@ -189,13 +196,8 @@ def start():
     px, py = planning(boundaryX, boundaryY, pathResolution)
     firstPoint = getPath(pathIndex)
 
-    firstValue = 12
-    secondValue = 10
-
-    print(firstValue^secondValue)
-
-    # if not(recording):
-    #     startRecording()
+    if not(recording):
+        startRecording()
 
     changeLocationIndex()
     loop()

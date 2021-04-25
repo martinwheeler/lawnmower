@@ -52,6 +52,7 @@ class GPS:
             # GPRMC = Recommended minimum specific GPS/Transit data
             # Reading the GPS fix data is an alternative approach that also works
             parts = data.split(",")
+
             if parts[2] == 'V':
                 # V = Warning, most likely, there are no satellites in view...
                 print("GPS receiver warning")
@@ -60,9 +61,23 @@ class GPS:
                 # Get the position data that was transmitted with the GPRMC message
                 # In this example, I'm only interested in the longitude and latitude
                 # for other values, that can be read, refer to: http://aprs.gids.nl/nmea/#rmc
+
+                # TYPE, time stamp, A = Good V = Warning, Latitude, S/N, Longitude, E/W, Speed in Knots, Degrees from true north, date stamp, magnetic variation
+                # Example NMEA message: $GNRMC,225846.50,A,2809.41049,S,15319.68924,E,0.020,,240421,,,A,V*05
+                # Everything after * is apart of the checksum
+
                 latitude = self.formatDegreesMinutes(parts[3], 2)
                 longitude = self.formatDegreesMinutes(parts[5], 3)
-                currentLocation = LocationObject(float(latitude), float(longitude))
+                
+                speed = 0.0
+                heading = parts[8]
+
+                try:
+                    speed = float(parts[7])
+                except:
+                    return
+
+                currentLocation = LocationObject(float(latitude), float(longitude), speed, heading)
                 return currentLocation
         else:
             # Handle other NMEA messages and unsupported strings
