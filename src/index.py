@@ -5,20 +5,26 @@ import pathPlanning
 from pathPlanning import planning
 import threading
 import random
-from gps import GPS
+# from gps import GPS
 from inside_polygon import Geospacial
 from location import LocationObject
 import time
 from datetime import datetime
 import struct
 import serial
+import ctypes
 
 SAFE_SPOT = {
     "lat": "",
     "long": ""
 }
 
+# TODO: Create script to make sure this is disabled - https://forums.developer.nvidia.com/t/jetson-nano-how-to-use-uart-on-ttyths1/82037
+# TODO: Create a script to add user to dialout group for Serial permissions - https://forums.developer.nvidia.com/t/pyserial-to-use-uart-with-wrong-permision-denied-dev-ttyths1/84206
+
 # https://www.jetsonhacks.com/nvidia-jetson-nano-j41-header-pinout/
+# UART 1 TX - PIN 8
+# UART 1 RX - PIN 10
 
 REQUIRED_DISTANCE_TO_GPS_POINT = 1 # metres
 
@@ -39,7 +45,7 @@ pathResolution = 0.00001
 locationIndex = 0
 pathIndex = 0
 
-gps = GPS()
+gps = False# GPS()
 geospace = Geospacial()
 
 motor1 = serial.Serial(
@@ -50,14 +56,14 @@ motor1 = serial.Serial(
     stopbits=serial.STOPBITS_ONE,
     timeout=1
 )
-motor2 = serial.Serial(
-    port="/dev/ttyTHS1",
-    baudrate=115200,
-    bytesize=serial.EIGHTBITS,
-    parity=serial.PARITY_NONE,
-    stopbits=serial.STOPBITS_ONE,
-    timeout=1
-)
+# motor2 = serial.Serial(
+#     port="/dev/ttyTHS1",
+#     baudrate=115200,
+#     bytesize=serial.EIGHTBITS,
+#     parity=serial.PARITY_NONE,
+#     stopbits=serial.STOPBITS_ONE,
+#     timeout=1
+# )
 
 def changeLocationIndex():
     threading.Timer(1.0, changeLocationIndex).start()
@@ -79,25 +85,26 @@ def sendMotorSignal(motor, steer = 0, speed = 20):
     checksum = start ^ steer ^ speed
     
     # https://www.journaldev.com/17401/python-struct-pack-unpack
-    dataToSend = struct.pack('HhhH', start, steer, speed, checksum)
+    dataToSend = struct.pack('IiiI', ctypes.c_uint(start).value, ctypes.c_int(steer).value, ctypes.c_int(speed).value, ctypes.c_uint(checksum).value)
+    print(dataToSend)
 
     motor.write(dataToSend)
 
 def turnLeft():
     sendMotorSignal(motor1, 0, -20)
-    sendMotorSignal(motor2, 0, 20)
+    # sendMotorSignal(motor2, 0, 20)
 
 def turnRight():
     sendMotorSignal(motor1, 0, 20)
-    sendMotorSignal(motor2, 0, -20)
+    # sendMotorSignal(motor2, 0, -20)
 
 def forward():
     sendMotorSignal(motor1, 0, 20)
-    sendMotorSignal(motor2, 0, 20)
+    # sendMotorSignal(motor2, 0, 20)
 
 def backward():
     sendMotorSignal(motor1, 0, -20)
-    sendMotorSignal(motor2, 0, -20)
+    # sendMotorSignal(motor2, 0, -20)
 
 def goTo(point):
     currentData = getGPSData()
@@ -196,23 +203,45 @@ def start():
     px, py = planning(boundaryX, boundaryY, pathResolution)
     firstPoint = getPath(pathIndex)
 
-    if not(recording):
-        startRecording()
+    # if not(recording):
+    #     startRecording()
 
-    changeLocationIndex()
+    # changeLocationIndex()
     loop()
+
+testIndex = 0
+
+def testMotors():
+    global testIndex
+
+    print(f'Triggering motor with {testIndex}')
+
+    if (testIndex == 0):
+        forward()
+    if (testIndex == 1):
+        backward()
+    if (testIndex == 2):
+        turnLeft()
+    if (testIndex == 3):
+        turnRight()
+    
+    testIndex = testIndex + 1
+    if testIndex > 3:
+        testIndex = 0
 
 def loop():
     global reachedStartingPoint, pathIndex, recording
 
-    if recording:
-        recordFence()
-    else:
-        detectIssues()
-        navigatePath()
-        handleMowing()
+    testMotors()
+
+    # if recording:
+    #     recordFence()
+    # else:
+    #     detectIssues()
+    #     navigatePath()
+    #     handleMowing()
     
-    threading.Timer(0.01, loop).start()
+    threading.Timer(10, loop).start()
 
 if __name__ == "__main__":
     start()

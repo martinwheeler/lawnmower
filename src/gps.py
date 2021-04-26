@@ -1,9 +1,9 @@
-import serial
+from serial import Serial
 from location import LocationObject
 
 SERIAL_PORT = "/dev/ttyTHS1"
 running = True
-gps = serial.Serial(
+gps = Serial(
     port="/dev/ttyTHS1",
     baudrate=115200,
     bytesize=serial.EIGHTBITS,
